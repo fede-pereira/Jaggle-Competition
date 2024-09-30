@@ -1,0 +1,12 @@
+{'auction_age': 435.0, 'auction_bidfloor': 855.0, 'creative_height': 156.0, 'creative_width': 39.0, 'timezone_offset': 106.0, 'hora': 1214.0, 'minuto': 1787.0}{'auction_age': 630.0, 'auction_bidfloor': 1480.0, 'auction_time': 3502.0, 'creative_height': 270.0, 'creative_width': 64.0, 'timezone_offset': 89.0, 'hora': 702.0, 'minuto': 4009.0}
+
+
+Performance: 0.8095506939093406{'auction_age': 56.0, 'auction_bidfloor': 192.0, 'auction_time': 131.0, 'creative_height': 57.0, 'creative_width': 13.0, 'timezone_offset': 50.0, 'hora': 48.0, 'minuto': 104.0}
+
+
+Performance: 0.7930961809971055{'auction_age': 230.0, 'auction_bidfloor': 619.0, 'auction_time': 1016.0, 'creative_height': 134.0, 'creative_width': 24.0, 'timezone_offset': 56.0, 'dia_semana': 3.0, 'hora': 219.0, 'minuto': 1028.0}
+
+
+{'auction_age': 15570.0, 'auction_bidfloor': 47363.0, 'auction_time': 89561.0, 'creative_height': 10949.0, 'creative_width': 5720.0, 'timezone_offset': 3878.0}
+
+
