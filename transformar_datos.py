@@ -105,25 +105,32 @@ elif submit:
 
     # Parameters for XGBoost
     params = { 
-        'max_depth': 5,
+        'max_depth': 9,
         'objective': 'binary:logistic',
         'eval_metric': 'auc',
-        'seed': 12345
+        'learning_rate': 0.2,
+        'seed': 12,
+        'min_child_weight': 3
     } 
     # Initialize an empty model to update incrementally
     bst = None
 
     # Define the chunk size (number of rows per chunk)
     chunk_size = 1000000000  # Adjust this value based on your available memory
-
+    eval_data = pd.read_parquet(
+            rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data21_{test}_{submit}.parquet"
+        )
+    eval_data = eval_data.sample(frac=1/10)
+    non_numeric_columns = eval_data.select_dtypes(exclude=['number']).columns
+    eval_data = eval_data.drop(columns=non_numeric_columns)
     # Read data in chunks and process incrementally
-    for n in range(15, 22):
+    for n in range(15, 21):
         print(f"Processing dataset {n}...")
         
         train = pd.read_parquet(
             rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data{n}_{test}_{submit}.parquet"
         )
-        
+        train= train.sample(frac=1/10)
         print('traing' )
 
         # Separate label and features
@@ -136,8 +143,17 @@ elif submit:
     
         if n == 15:
             columns = X_train.columns
+            
         df = pd.DataFrame(columns=columns)
         X_train = pd.concat([X_train, df], axis=0)
+        if n == 15:
+            eval_data = pd.concat([eval_data, df], axis=0)
+            y_val = eval_data["Label"]
+
+            X_val = eval_data.drop(columns=["Label"])
+            X_val = X_val.drop(columns=[col for col in X_val.columns if col not in columns])
+            X_val = X_val.select_dtypes(include='number')
+            deval = xgb.DMatrix(X_val, label=y_val)
 
         #elimino columnas que no estaban en el primer dataset
         X_train = X_train.drop(columns=[col for col in X_train.columns if col not in columns])
@@ -149,16 +165,17 @@ elif submit:
 
         # Train the model incrementally
         if bst is None:
-            bst = xgb.train(params, dtrain, num_boost_round=10, verbose_eval=10)
+            
+            bst = xgb.train(params, dtrain, num_boost_round=100, verbose_eval=10,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=10)
         else:
-            bst = xgb.train(params, dtrain, num_boost_round=10, xgb_model=bst, verbose_eval=10)
+            bst = xgb.train(params, dtrain, num_boost_round=100, xgb_model=bst, verbose_eval=10,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=10)
 
         # Free up memory after processing the chunk
         del X_train, y_train, dtrain
         gc.collect()
 
     # Save the final model
-    bst.save_model(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\xgb_final_model.json")
+    bst.save_model(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\xgb_final_model_2.json")
     print('processing eval data')
     eval_data = pd.read_parquet(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data22_{test}_{submit}.parquet")
 
@@ -180,7 +197,7 @@ else:
     print(train_data.head())
     eval_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_21.csv", nrows=n)
 
-datasets = [train_data, eval_data]
+
 t = 0
 
 

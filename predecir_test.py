@@ -5,7 +5,7 @@ import gc
 # Load only the column names from the training data
 columns = pd.read_parquet(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data15_False_True.parquet", columns=None).select_dtypes(include='number').columns
 
-path_model = r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\xgb_final_model.json"
+path_model = r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\xgb_final_model_2.json"
 #load model
 model = xgb.Booster()
 model.load_model(path_model)
