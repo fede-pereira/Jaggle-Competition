@@ -15,9 +15,9 @@ np.random.seed(12)
 #combinacion de hiperparametros
 hipers = []
 performance = {}
-for max_depth in [3, 5, 7, 9, 12]:
-    for learning_rate in [0.01, 0.05, 0.1, 0.2, 0.3]:
-        for min_child_weight in [1, 3, 5, 7]:
+for max_depth in [ 5, 7, 9]:
+    for learning_rate in [0.001,0.005,0.007,0.01, 0.05]:
+        for min_child_weight in [5, 7,9,10]:
             hipers.append((max_depth, learning_rate, min_child_weight))
             performance[(max_depth, learning_rate, min_child_weight)] = 0
 
