@@ -4,8 +4,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import make_pipeline
 
-df = pd.read_parquet(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data16_False_True.parquet")
-print(df.head())
 
 # Print all columns and rows
 pd.set_option('display.max_columns', None)

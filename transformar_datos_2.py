@@ -221,14 +221,10 @@ if submit:
     del train_data
     gc.collect()
   
-    
-    
-
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
-
     params = { 
-        'max_depth': 13,
+        'max_depth': 8,
         'objective': 'binary:logistic',
         'eval_metric': 'auc',
         'seed': 12345,
