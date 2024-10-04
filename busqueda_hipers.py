@@ -21,6 +21,8 @@ for max_depth in [ 5, 7, 9]:
             hipers.append((max_depth, learning_rate, min_child_weight))
             performance[(max_depth, learning_rate, min_child_weight)] = 0
 
+hipers = hipers[::-1]
+
 first = True
 df = pd.DataFrame(performance.items(), columns=['hiper', 'auc'])
 

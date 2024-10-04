@@ -6,6 +6,11 @@ from sklearn.metrics import roc_auc_score
 import hashlib
 from joblib import Parallel, delayed
 import re
+import pyarrow as pa
+import pyarrow.parquet as pq
+import numpy as np
+import gc
+
 def create_list_columns(dataset, label, value):
         value = str(value)  # Ensure value is a string
         return pd.DataFrame({label + '_' + value: dataset[label].apply(lambda x: columna_lista_contiene_valor(x, value))})
@@ -90,6 +95,32 @@ def transformo_dataset(dataset,t,category_labels,boolean_labels,list_labels,dic,
 
     return dataset
 
+def load_chunk(file_path, start_row, chunk_size):
+    # Leer solo el chunk especificado
+    table = pq.read_table(file_path)
+    total_rows = table.num_rows
+    end_row = min(start_row + chunk_size, total_rows)
+    
+    # Convertir las columnas que sean numéricas en pyarrow directamente
+    chunk = table.slice(start_row, end_row - start_row)
+    schema = chunk.schema
+    new_columns = []
+
+    for i, col in enumerate(chunk.columns):
+        field_type = schema.field(i).type
+        if pa.types.is_floating(field_type):
+            # Convertir columnas float a float64
+            col = col.cast("float64")
+        elif pa.types.is_integer(field_type):
+            # Convertir columnas int a int64
+            col = col.cast("int64")
+        new_columns.append(col)
+    
+    # Crear una nueva tabla con las columnas convertidas
+    chunk = pa.Table.from_arrays(new_columns, schema=schema)
+    df = chunk.to_pandas()
+    
+    return df, end_row >= total_rows
 
 test = False
 submit = True
@@ -102,42 +133,104 @@ if test:
     eval_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_21.csv")
     eval_data = eval_data.sample(frac=1/10)
 elif submit:
-    datasets = []
-    # for n in range(15, 22):
-    #     train_data = pd.read_csv(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_{n}.csv")
-    #     # train_data = train_data.sample(frac=1/50)
-    #     datasets.append(train_data)
-    # train_data = pd.concat(datasets)
-    # # One hot encoding for boolean columns
-    # boolean_labels = [x for x in train_data.columns if 'boolean' in x]
 
-    # # List of category labels
-    # category_labels = [x for x in train_data.columns if 'categorical' in x] + ['gender', 'has_video', 'auction_age', 'creative_width', 'creative_height', 'device_id_type'] + boolean_labels
+    # Parameters for XGBoost
+    params = { 
+        'max_depth': 9,
+        'objective': 'binary:logistic',
+        'eval_metric': 'auc',
+        'learning_rate': 0.1,
+        'seed': 12,
+        'min_child_weight': 9
+    } 
+    # Initialize an empty model to update incrementally
+    bst = None
 
-    
-    # # Calculate unique categories in the first iteration (train_data)
-    # dic = {label: train_data[label].nunique() for label in category_labels}
-    # list_labels = [x for x in train_data.columns if 'ction_list_' in x]
-    # dic_values = extract_list_values(train_data, list_labels)
-    #train_data = pd.read_csv(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_{n}.csv")
-        #train_data = train_data.sample(frac=1/50)
-        #train_data = transformo_dataset(train_data, n, category_labels, boolean_labels, list_labels, dic, dic_values)
-    for n in range(15, 22):
-        print(f"Processing dataset {n}...")
-        train_data = pd.read_parquet(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data{n}_{test}_{submit}.parquet")
-        non_numeric_columns = train_data.select_dtypes(exclude=['number']).columns
-        train_data = train_data.drop(columns=non_numeric_columns)
-        # Convert to sparse DataFrame
-        train_data = train_data.astype(pd.SparseDtype("float", fill_value=0))
-    
-        datasets.append(train_data)
-
-# Concatenate the datasets (also as a sparse DataFrame)
-    train_data = pd.concat(datasets)
-    print('processing eval data')
-    eval_data = pd.read_parquet(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data22_{test}_{submit}.parquet")
+    # Define the chunk size (number of rows per chunk)
+    chunk_size = 50000  # Adjust this value based on your available memory
+    eval_data = pd.read_parquet(
+            rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data21_{test}_{submit}.parquet"
+        )
+    eval_data = eval_data.sample(frac=1/10)
     non_numeric_columns = eval_data.select_dtypes(exclude=['number']).columns
     eval_data = eval_data.drop(columns=non_numeric_columns)
+
+    file_paths = [f"C:\\Users\\fpereira\\OneDrive - BYMA\\Documentos\\GitHub\\Jaggle-Competition\\train_data{n}_{test}_{submit}.parquet" for n in range(15, 21)]
+    # Read data in chunks and process incrementally
+    finished_files = {fp: False for fp in file_paths}
+    start_rows = {fp: 0 for fp in file_paths} 
+    n = 15
+    # Read data in chunks and process incrementally
+    while not all(finished_files.values()):
+        samples = []
+        for fp in file_paths:
+            if not finished_files[fp]:
+                # Cargar el siguiente chunk
+                df, finished = load_chunk(fp, start_rows[fp], chunk_size)
+                samples.append(df)
+                start_rows[fp] += chunk_size  # Actualizar para el próximo chunk
+                finished_files[fp] = finished  # Marcar si el archivo se terminó
+
+        # Concatenar muestras de cada archivo para la iteración
+        train = pd.concat(samples, ignore_index=True)
+        print('traing',n )
+
+        # Separate label and features
+        y_train = train["Label"]
+        X_train = train.drop(columns=["Label"])
+        del train
+        gc.collect()
+        # Select numeric columns only
+        X_train = X_train.select_dtypes(include='number')
+    
+        if n == 15:
+            columnas = list(X_train.columns)
+        
+            
+        df = pd.DataFrame(columns=columnas)
+        X_train = pd.concat([X_train, df], axis=0)
+        if n == 15:
+            eval_data = pd.concat([eval_data, df], axis=0)
+            y_val = eval_data["Label"]
+            
+            # Filtrar columnas relevantes y convertir a numéricas
+            X_val = eval_data[columnas].copy()  # Solo selecciona las columnas que están en 'columnas'
+            X_val = X_val.apply(pd.to_numeric, errors="coerce")  # Convierte a numérico con coerción de errores
+            
+            # Crear DMatrix para XGBoost
+            deval = xgb.DMatrix(X_val, label=y_val)
+        n += 1
+        #elimino columnas que no estaban en el primer dataset
+        X_train = X_train[columnas].copy()
+        X_train = X_train.apply(pd.to_numeric, errors="coerce")
+        X_train = X_train.select_dtypes(include='number')
+        print(X_train.columns)
+        # Create DMatrix for this chunk
+        dtrain = xgb.DMatrix(X_train, label=y_train)
+
+        # Train the model incrementally
+        if bst is None:
+            
+            bst = xgb.train(params, dtrain, num_boost_round=100, verbose_eval=10,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=10)
+        else:
+            bst = xgb.train(params, dtrain, num_boost_round=100, xgb_model=bst, verbose_eval=10,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=10)
+
+        # Free up memory after processing the chunk
+        del X_train, y_train, dtrain
+        gc.collect()
+
+    # Save the final model
+    bst.save_model(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\xgb_final_model_2.json")
+    print('processing eval data')
+    eval_data = pd.read_parquet(rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data22_{test}_{submit}.parquet")
+
+    non_numeric_columns = eval_data.select_dtypes(exclude=['number']).columns
+    eval_data = eval_data.drop(columns=non_numeric_columns)
+    df = pd.DataFrame(columns=columns)
+    eval_data = pd.concat([eval_data, df], axis=0)
+    eval_data = eval_data.drop(columns=[col for col in eval_data.columns if col not in columns])
+    eval_data = eval_data.select_dtypes(include='number')
+    
     # eval_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_test.csv")
     # # eval_data = eval_data.sample(frac=1/10)
     # eval_data = transformo_dataset(eval_data, 22, category_labels, boolean_labels, list_labels, dic, dic_values)
@@ -149,7 +242,7 @@ else:
     print(train_data.head())
     eval_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_21.csv", nrows=n)
 
-datasets = [train_data, eval_data]
+
 t = 0
 
 
@@ -215,27 +308,27 @@ if test:
 if submit:
     
 
-    y_train = train_data["Label"]
-    X_train = train_data.drop(columns=["Label"])
-    X_train = X_train.select_dtypes(include='number')
-    del train_data
-    gc.collect()
+    # y_train = train_data["Label"]
+    # X_train = train_data.drop(columns=["Label"])
+    # X_train = X_train.select_dtypes(include='number')
+    # del train_data
+    # gc.collect()
   
-    dtrain = xgb.DMatrix(X_train, label=y_train)
+    # dtrain = xgb.DMatrix(X_train, label=y_train)
 
-    params = { 
-        'max_depth': 8,
-        'objective': 'binary:logistic',
-        'eval_metric': 'auc',
-        'seed': 12345,
-    }
+    # params = { 
+    #     'max_depth': 13,
+    #     'objective': 'binary:logistic',
+    #     'eval_metric': 'auc',
+    #     'seed': 12345,
+    # }
 
-    bst = xgb.train(params, dtrain, num_boost_round=1000, verbose_eval=10)
+    # bst = xgb.train(params, dtrain, num_boost_round=1000, verbose_eval=10)
 
-    del X_train
-    del y_train
-    del dtrain
-    gc.collect()
+    # del X_train
+    # del y_train
+    # del dtrain
+    # gc.collect()
     
 
     X_val = eval_data.select_dtypes(include='number')

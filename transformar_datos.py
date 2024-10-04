@@ -108,9 +108,9 @@ elif submit:
         'max_depth': 9,
         'objective': 'binary:logistic',
         'eval_metric': 'auc',
-        'learning_rate': 0.2,
+        'learning_rate': 0.1,
         'seed': 12,
-        'min_child_weight': 3
+        'min_child_weight': 9
     } 
     # Initialize an empty model to update incrementally
     bst = None
