@@ -147,7 +147,7 @@ elif submit:
     bst = None
 
     # Define the chunk size (number of rows per chunk)
-    chunk_size = 50000  # Adjust this value based on your available memory
+    chunk_size = 100000  # Adjust this value based on your available memory
     eval_data = pd.read_parquet(
             rf"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\train_data21_{test}_{submit}.parquet"
         )
