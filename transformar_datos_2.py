@@ -173,7 +173,7 @@ elif submit:
 
         # Concatenar muestras de cada archivo para la iteración
         train = pd.concat(samples, ignore_index=True)
-        print('traing',n )
+        print('traing',n-15 )
 
         # Separate label and features
         y_train = train["Label"]
@@ -204,16 +204,16 @@ elif submit:
         X_train = X_train[columnas].copy()
         X_train = X_train.apply(pd.to_numeric, errors="coerce")
         X_train = X_train.select_dtypes(include='number')
-        print(X_train.columns)
+        
         # Create DMatrix for this chunk
         dtrain = xgb.DMatrix(X_train, label=y_train)
 
         # Train the model incrementally
         if bst is None:
             
-            bst = xgb.train(params, dtrain, num_boost_round=100, verbose_eval=10,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=10)
+            bst = xgb.train(params, dtrain, num_boost_round=100, verbose_eval=3,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=3)
         else:
-            bst = xgb.train(params, dtrain, num_boost_round=100, xgb_model=bst, verbose_eval=10,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=10)
+            bst = xgb.train(params, dtrain, num_boost_round=100, xgb_model=bst, verbose_eval=3,evals=[(dtrain, 'train'), (deval, 'eval')], early_stopping_rounds=3)
 
         # Free up memory after processing the chunk
         del X_train, y_train, dtrain
