@@ -52,19 +52,19 @@ def transformo_dataset(dataset,t,category_labels,boolean_labels,list_labels,dic,
     dataset['hora'] = dataset['fecha'].dt.hour
     dataset['minuto'] = dataset['fecha'].dt.minute
 
-    # One hot encoding for boolean columns
-    # boolean_labels = [x for x in dataset.columns if 'boolean' in x]
+    # # One hot encoding for boolean columns
+    # # boolean_labels = [x for x in dataset.columns if 'boolean' in x]
 
-    # # List of category labels
-    # category_labels = [x for x in dataset.columns if 'categorical' in x] + ['gender', 'has_video', 'auction_age', 'creative_width', 'creative_height', 'device_id_type'] + boolean_labels
+    # # # list of category labels
+    # # category_labels = [x for x in dataset.columns if 'categorical' in x] + ['gender', 'has_video', 'auction_age', 'creative_width', 'creative_height', 'device_id_type'] + boolean_labels
 
     new_columns_list = []
     
     # Calculate unique categories in the first iteration (train_data)
-    # if t == t:
-    #     dic = {label: dataset[label].nunique() for label in category_labels}
-    #     list_labels = [x for x in dataset.columns if 'ction_list_' in x]
-    #     dic_values = extract_list_values(dataset, list_labels)
+    # # if t == t:
+    # #     dic = {label: dataset[label].nunique() for label in category_labels}
+    # #     list_labels = [x for x in dataset.columns if 'ction_list_' in x]
+    # #     dic_values = extract_list_values(dataset, list_labels)
 
     # Generate new columns for categorical variables
     for label in category_labels:
@@ -127,11 +127,28 @@ submit = True
 
 # Load part of the train data only the first 10000 rows
 if test:
-    train_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_20.csv")
+    train_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_15.csv")
     train_data = train_data.sample(frac=1/10)
     print(train_data.head())
     eval_data = pd.read_csv(r"C:\Users\fpereira\OneDrive - BYMA\Documentos\GitHub\Jaggle-Competition\ctr_21.csv")
     eval_data = eval_data.sample(frac=1/10)
+
+    # # List of category labels
+    category_labels = [x for x in train_data.columns if 'categorical' in x]
+    # # List of boolean labels
+    boolean_labels = [x for x in train_data.columns if 'boolean' in x]
+    # # List of list labels
+    list_labels = [x for x in train_data.columns if 'ction_list_' in x]
+
+    # # Calculate unique categories in the first iteration (train_data)
+    dic = {label: train_data[label].nunique() for label in category_labels}
+    dic_values = extract_list_values(train_data, list_labels)
+
+    for t in range(15, 22):
+        train_data = transformo_dataset(train_data, t, category_labels, boolean_labels, list_labels, dic, dic)
+    eval_data = transformo_dataset(eval_data, t, category_labels, boolean_labels, list_labels, dic, dic)
+
+
 elif submit:
 
     # Parameters for XGBoost
